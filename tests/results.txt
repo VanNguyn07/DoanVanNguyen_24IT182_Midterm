@@ -1,0 +1,20 @@
+PASS: basic listing
+PASS: hidden entries
+PASS: reverse and hidden
+PASS: inode and classification
+PASS: long format
+PASS: numeric IDs and inode
+PASS: blocks and KiB
+PASS: human sizes
+PASS: recursive with safe names
+PASS: recursive long format
+PASS: directory operands
+PASS: mixed operands
+PASS: size sort
+PASS: reverse time sort
+PASS: access time sort
+PASS: status change time sort
+PASS: symbolic links
+PASS: continue after error
+
+Result: 18 PASS, 0 FAIL

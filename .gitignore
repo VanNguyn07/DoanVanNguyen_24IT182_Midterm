@@ -1,0 +1,8 @@
+/ls
+*.o
+*.tmp
+/system_output.txt
+/our_output.txt
+
+/.test_hidden
+/test_visible.txt
