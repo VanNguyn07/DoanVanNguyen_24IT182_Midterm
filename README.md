@@ -4,7 +4,125 @@ Chương trình triển khai phiên bản rút gọn của lệnh UNIX ls bằng
 
 1. Giới thiệu
 
-Chương trình liệt kê file và thư mục, hiển thị metadata, sắp xếp kết quả và duyệt thư mục con theo các tùy chọn được yêu cầu.
+C# Midterm Project – Implement ls(1)
+
+[![Language](https://img.shields.io/badge/Language-C99-blue.svg)](https://en.wikipedia.org/wiki/C99)
+[![Platform](https://img.shields.io/badge/Platform-NetBSD%2010.1-orange.svg)](https://www.netbsd.org/)
+[![Compiler](https://img.shields.io/badge/Compiler-GCC%2010.5.0-green.svg)](https://gcc.gnu.org/)
+[![Build Tool](https://img.shields.io/badge/Build-Make-lightgrey.svg)](https://www.gnu.org/software/make/)
+
+> Chương trình triển khai phiên bản rút gọn của lệnh UNIX `ls` bằng ngôn ngữ C, dựa trên manual `ls.pdf` được cung cấp trong đề bài.
+
+---
+
+## 📑 Mục lục
+1. [Giới thiệu](#1-giới-thiệu)
+2. [Chức năng](#2-chức-năng)
+   - [Hành vi cơ bản](#hành-vi-cơ-bản)
+   - [Các tùy chọn đã tích hợp](#các-tùy-chọn-đã-tích-hợp)
+   - [Quy tắc ghi đè tùy chọn](#quy-tắc-ghi-đè-tùy-chọn)
+   - [Thông tin chi tiết (Long format)](#thông-tin-chi-tiết)
+   - [Biến môi trường & Xử lý I/O](#biến-môi-trường)
+3. [Yêu cầu môi trường](#3-yêu-cầu-môi-trường)
+4. [Cấu trúc mã nguồn](#4-cấu-trúc-mã-nguồn)
+5. [Biên dịch](#5-biên-dịch)
+6. [Hướng dẫn sử dụng](#6-hướng-dẫn-sử-dụng)
+7. [Tài liệu tham khảo](#7-tài-liệu-tham-khảo)
+
+---
+
+## 1. Giới thiệu
+
+* **Mục tiêu:** Chương trình liệt kê file và thư mục, hiển thị metadata, sắp xếp kết quả và duyệt thư mục con theo các tùy chọn được yêu cầu.
+* **Cấu trúc mã nguồn:** Được chia thành nhiều module `.c` và header `.h`. Sử dụng `Makefile` để tự động hóa biên dịch từng module, sau đó liên kết thành file thực thi `ls`.
+* **Phạm vi triển khai:** Tập trung vào tập chức năng trong manual `ls.pdf` được cung cấp trong đề bài, không phải toàn bộ tùy chọn của lệnh `ls` thực tế trên hệ thống.
+
+---
+
+## 2. Chức năng
+
+### Hành vi cơ bản
+* **Không truyền đường dẫn:** Liệt kê nội dung của thư mục hiện tại (`.`).
+* **Truyền file:** Hiển thị file và thông tin được yêu cầu.
+* **Truyền thư mục:** Liệt kê nội dung bên trong thư mục.
+* **Hỗ trợ nhiều đường dẫn:** Xử lý nhiều đối số trong một lần gọi; luôn hiển thị các đối số không phải thư mục trước, sau đó mới xử lý các thư mục.
+* **Định dạng mặc định:** Hiển thị mỗi mục trên một dòng và sắp xếp theo thứ tự bảng chữ cái (alphabetical).
+* **Quản lý lỗi:** 
+  * Báo lỗi khi gặp đường dẫn không tồn tại hoặc thao tác filesystem thất bại.
+  * Tiếp tục xử lý các đối số hợp lệ còn lại khi một đối số bị lỗi.
+
+### Các tùy chọn đã tích hợp
+
+| Tùy chọn | Chức năng chi tiết |
+| :---: | :--- |
+| `-a` | Hiển thị tất cả mục, kể cả `.` và `..` |
+| `-A` | Hiển thị mục ẩn nhưng loại trừ `.` và `..`; mặc định bật khi chạy với quyền root |
+| `-c` | Chọn thời gian thay đổi trạng thái file (ctime) để hiển thị với `-l` hoặc sắp xếp với `-t` |
+| `-d` | Hiển thị bản thân thư mục, không liệt kê nội dung; không đi theo symbolic link ở đối số |
+| `-F` | Thêm ký hiệu nhận biết loại file sau tên (`/`, `*`, `@`, `=`, `\|`,...) |
+| `-f` | Không sắp xếp (giữ nguyên thứ tự đọc từ filesystem) |
+| `-h` | Hiển thị kích thước dễ đọc (K, M, G,...) khi dùng với `-l` và `-s` |
+| `-i` | Hiển thị số inode |
+| `-k` | Dùng đơn vị 1024 byte cho số block |
+| `-l` | Hiển thị thông tin chi tiết (long format) |
+| `-n` | Hiển thị chi tiết tương tự `-l` nhưng với UID/GID dạng số |
+| `-q` | Thay ký tự không in được trong tên bằng `?` |
+| `-R` | Liệt kê thư mục con theo chiều sâu (đệ quy) |
+| `-r` | Đảo thứ tự sắp xếp |
+| `-S` | Sắp xếp theo kích thước, lớn nhất trước |
+| `-s` | Hiển thị số block thực tế được cấp phát |
+| `-t` | Sắp xếp theo thời gian, mới nhất trước |
+| `-u` | Chọn thời gian truy cập (atime) để hiển thị với `-l` hoặc sắp xếp với `-t` |
+| `-w` | Hiển thị tên nguyên dạng |
+
+### Quy tắc ghi đè tùy chọn
+* **Cặp tùy chọn ưu tiên lựa chọn xuất hiện cuối cùng:**
+  * `-l` và `-n`
+  * `-c` và `-u`
+  * `-R` và `-d`
+  * `-k` và `-h`
+  * `-q` và `-w`
+* **Quy tắc với `-f`:** Khi bật `-f`, chương trình giữ thứ tự đọc được và không áp dụng việc đảo thứ tự sắp xếp (`-r`).
+
+### Thông tin chi tiết (Long format)
+Khi kích hoạt `-l` hoặc `-n`, mỗi dòng hiển thị gồm:
+1. Loại file và quyền truy cập (permissions).
+2. Số hard link.
+3. Chủ sở hữu (User) và nhóm (Group) — hiển thị ID dạng số nếu không tìm được tên.
+4. Kích thước byte hoặc số major/minor của file thiết bị.
+5. Thời gian được chọn (`mtime`, `atime`, hoặc `ctime`).
+6. Tên file.
+7. Đích symbolic link sau ký hiệu `->` (nếu là symbolic link).
+
+### Biến môi trường & Xử lý I/O
+
+| Biến môi trường | Ảnh hưởng |
+| :--- | :--- |
+| `BLOCKSIZE` | Đơn vị hiển thị số block khi không dùng `-k` hoặc `-h` |
+| `TZ` | Múi giờ khi hiển thị thời gian |
+| `LC_ALL` / `LANG` | Locale dùng để định dạng thời gian và nhận biết ký tự trong tên |
+
+> [!NOTE]
+> * **Output tới terminal:** Mặc định thay ký tự không in được bằng dấu `?` (tương đương `-q`).
+> * **Output chuyển hướng (pipe/redirect):** Mặc định giữ tên nguyên dạng (tương đương `-w`).
+
+---
+
+## 3. Yêu cầu môi trường
+
+| Thành phần | Đặc tả / Giá trị |
+| :--- | :--- |
+| **Hệ điều hành** | NetBSD 10.1 |
+| **Trình biên dịch** | `cc`, GCC 10.5.0 |
+| **Chuẩn ngôn ngữ** | C99 |
+| **Công cụ build** | `make` |
+| **Shell** | `/bin/sh` |
+
+Kiểm tra thông số môi trường trước khi chạy:
+```bash
+uname -sr
+cc --version
+command -v makehương trình liệt kê file và thư mục, hiển thị metadata, sắp xếp kết quả và duyệt thư mục con theo các tùy chọn được yêu cầu.
 
 Mã nguồn được chia thành nhiều module .c và header .h. Makefile thực hiện biên dịch từng module, sau đó liên kết thành file thực thi ls.
 
